@@ -57,6 +57,7 @@ public:
     ~MqttHandler();
 
     void mqttSubscribe(string mqtt_topic, uint8_t mqtt_qos, void (*callback)(const char *, int ));
+    void mqttUnsubscribe(string msg_topic);
     void mqttPublish(string msg_topic, uint8_t msg_qos, bool msg_retained, const char *message, int len);
     void spinOnce();
 

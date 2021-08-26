@@ -1,4 +1,4 @@
-#include "mqtt_handler.h"
+#include "lib/mqtt_handler.h"
 
 using namespace std;
 
@@ -80,6 +80,24 @@ void MqttHandler::mqttSubscribe(string msg_topic, uint8_t msg_qos, void (*callba
 {
     // add to map for connect or reconnect
     _mqtt_sub_map.insert(map<string, MqttSubMeta *>::value_type(msg_topic.data(), new MqttSubMeta(msg_qos, callback)));
+    // subscribe directly if already connected
+    if(_mqtt_connected)
+        MQTTClient_subscribe(_client, msg_topic.c_str(), msg_qos);
+}
+
+void MqttHandler::mqttUnsubscribe(string msg_topic)
+{
+    std::map<string, MqttSubMeta *>::iterator iter = _mqtt_sub_map.find(msg_topic);
+    if(iter!=_mqtt_sub_map.end()) {
+        // free mem
+        delete iter->second;
+        // remove
+        _mqtt_sub_map.erase(iter);
+
+        // unsubscribe directly if already connected
+        if(_mqtt_connected)
+            MQTTClient_unsubscribe(_client, msg_topic.c_str());
+    } 
 }
 
 void MqttHandler::mqttPublish(string msg_topic, uint8_t msg_qos, bool msg_retained, const char *message, int len)
