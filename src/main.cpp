@@ -1,6 +1,10 @@
 #include <jsoncpp/json/json.h>
 #include <unistd.h>
+#include <functional>
 #include "mqtt_handler.h" 
+
+using namespace std;
+using namespace std::placeholders;
 
 bool g_quit = false;
 
@@ -24,12 +28,18 @@ void quitCallback(const char *msg, int len)
     g_quit = true;
 }
 
+void echoCallback(MqttHandler *mqtt_hd, const char *msg, int len)
+{
+    mqtt_hd->mqttPublish("/echo/back", 0, false, msg, len);
+}
+
 int main(int argc, char **argv)
 {
     MqttHandler *mqtt_hd = new MqttHandler("127.0.0.1:1883", "put_an_unique_code_here", "username", "password");
     // subscribe
     mqtt_hd->mqttSubscribe("/localization/pose", 0, poseCallback);
     mqtt_hd->mqttSubscribe("/quit", 0, quitCallback);
+    mqtt_hd->mqttSubscribe("/echo", 0, bind(echoCallback,mqtt_hd,_1,_2));
 
     int alive_cnt = 0;
     while(!g_quit) {
