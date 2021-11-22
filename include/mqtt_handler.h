@@ -4,10 +4,11 @@
 #include <iostream>
 #include <vector>
 #include <map>
-#include<cstring>
+#include <functional>
+#include <cstring>
+#include <pthread.h>
 extern "C" {
-#include "MQTTClient.h"
-#include "MQTTClientPersistence.h"
+#include "MQTTAsync.h"
 }
 
 using namespace std;
@@ -28,10 +29,10 @@ static void debug(string info) {
 class MqttSubMeta
 {
 public:
-    MqttSubMeta(uint8_t qos, void (*callback)(const char *, int)) :  qos(qos), callback(callback) {};
+    MqttSubMeta(uint8_t qos, function<void(const char *, int)> callback) :  qos(qos), callback(callback) {};
 
     uint8_t qos;
-    void (*callback)(const char *msg, int len);
+    function<void(const char *, int)> callback;
 };
 
 class MqttPubMeta
@@ -56,17 +57,14 @@ public:
     MqttHandler(string broker_addr, string client_id, string username, string password);
     ~MqttHandler();
 
-    void mqttSubscribe(string mqtt_topic, uint8_t mqtt_qos, void (*callback)(const char *, int ));
+    void mqttSubscribe(string mqtt_topic, uint8_t mqtt_qos, function<void(const char *, int)> callback);
     void mqttUnsubscribe(string msg_topic);
     void mqttPublish(string msg_topic, uint8_t msg_qos, bool msg_retained, const char *message, int len);
     void spinOnce();
 
 private:
+    MQTTAsync _client;
     // flags
-    MQTTClient _client;
-    MQTTClient_deliveryToken _deliver_token;
-    uint8_t _reconnect_cnt;
-    // states
     bool _mqtt_puber_free;
     bool _mqtt_connected;
     // connection info
@@ -75,15 +73,23 @@ private:
     string _mqtt_username;
     string _mqtt_password;
     // mqtt sub and pub data
+    pthread_mutex_t _pub_queue_mutex;
     std::vector<MqttPubMeta *> _mqtt_pub_queue;
     std::map<string, MqttSubMeta *> _mqtt_sub_map;
 
     void mqttDoPublish();
     bool mqttConnect(string broker_addr, string client_id, string username, string password);
-    void mqttDisconnect();
-    static void mqttMsgDelivered(void *context, MQTTClient_deliveryToken dt);
-    static int  mqttMsgArrive(void *context, char *msg_topic, int msg_len, MQTTClient_message *message);
+    
+    static int  mqttMsgArrive(void *context, char *msg_topic, int topic_len, MQTTAsync_message *message);
     static void mqttConnectLost(void *context, char *cause);
+    static void mqttConnectFailed(void* context, MQTTAsync_failureData* response);
+    static void mqttReconnected(void *context, char *cause);
+    static void mqttMsgSendSuccess(void* context, MQTTAsync_successData* response);
+    static void mqttMsgSendFailed(void* context, MQTTAsync_failureData* response);
 };
 
+/*
+refs:
+    https://www.eclipse.org/paho/files/mqttdoc/MQTTAsync/html/index.html
+*/ 
 #endif
