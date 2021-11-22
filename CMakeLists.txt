@@ -10,5 +10,6 @@ add_executable(mqtt_demo src/main.cpp src/mqtt_handler.cpp)
 
 target_link_libraries(mqtt_demo
   jsoncpp
-  paho-mqtt3c
+  paho-mqtt3a
+  pthread
 )
